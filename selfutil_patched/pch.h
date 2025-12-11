@@ -1,4 +1,21 @@
 //pch.h
+#pragma once
+
+#include <cstdio>
+#include <cstdlib>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+// Types missing on macOS
+using u64  = unsigned long long;
+using unat = unsigned long long;
+
+#if defined(__APPLE__)
+#include "compat/elf.h"
+#else
+#include <elf.h>
+#endif
 
 #ifndef PCH_H
 #define PCH_H
