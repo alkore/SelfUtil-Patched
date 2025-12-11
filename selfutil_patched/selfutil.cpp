@@ -2,34 +2,127 @@
 #include "selfutil.h"
 #include <filesystem>
 #include <cstring>
+#include <cstdio>
 
 using namespace std;
 
-// --- Fonctions utilitaires ---
+void print_usage()
+{
+    printf("selfutil [--input] [--output] [--dry-run] [--verbose] [--overwrite] [--align-size] [--not-patch-first-segment-duplicate] [--not-patch-version-segment]\n");
+}
 
-bool compare_u8_array(u8* first_array, u8* second_array, int size) {
+string input_file_path = "";
+string output_file_path = "";
+bool dry_run = false;
+bool verbose = false;
+bool overwrite = false;
+bool align_size = false;
+bool patch_first_segment_duplicate = true;
+Elf64_Off patch_first_segment_safety_percentage = 2;
+bool patch_version_segment = true;
+
+int first_min_offset = -1;
+
+int main(int argc, char* argv[])
+{
+    vector<string> args;
+
+    if (argc < 2) {
+        print_usage();
+        return 0;
+    }
+
+    bool error_found = false;
+
+    for (int i = 1; i < argc; i++)
+        args.push_back(argv[i]);
+
+    if (argc == 2)
+        input_file_path = args[0];
+    else
+    {
+        for (size_t i = 0; i < args.size(); i++)
+        {
+            if (args[i] == "--input" && i + 1 < args.size()) {
+                input_file_path = args[++i];
+            }
+            else if (args[i] == "--output" && i + 1 < args.size()) {
+                output_file_path = args[++i];
+            }
+            else if (args[i] == "--dry-run")
+                dry_run = true;
+            else if (args[i] == "--verbose")
+                verbose = true;
+            else if (args[i] == "--overwrite")
+                overwrite = true;
+            else if (args[i] == "--align-size")
+                align_size = true;
+            else if (args[i] == "--not-patch-first-segment-duplicate")
+                patch_first_segment_duplicate = false;
+            else if (args[i] == "--not-patch-version-segment")
+                patch_version_segment = false;
+            else {
+                error_found = true;
+                break;
+            }
+        }
+    }
+
+    if (error_found || input_file_path.empty())
+    {
+        print_usage();
+        return 0;
+    }
+
+    string fixed_output_file_path = output_file_path.empty() ? input_file_path : output_file_path;
+
+    if (!overwrite && output_file_path.empty())
+    {
+        size_t dot = input_file_path.rfind('.');
+        if (dot != string::npos) {
+            fixed_output_file_path = input_file_path.substr(0, dot) + ".elf";
+        }
+    }
+
+    printf(
+        "Input File Name: %s\nOutput File Name: %s\nDry Run: %s\nVerbose: %s\nOverwrite: %s\nAlign Size: %s\nPatch First Segment Duplicate: %s\nPatch Version Segment: %s\n",
+        input_file_path.c_str(),
+        fixed_output_file_path.c_str(),
+        dry_run ? "True" : "False",
+        verbose ? "True" : "False",
+        overwrite ? "True" : "False",
+        align_size ? "True" : "False",
+        patch_first_segment_duplicate ? "True" : "False",
+        patch_version_segment ? "True" : "False"
+    );
+
+    SelfUtil util(input_file_path);
+
+    if (!util.Load(input_file_path) || !util.SaveToELF(fixed_output_file_path))
+        printf("Error, Save to ELF failed!\n");
+
+    return 0;
+}
+
+// ---------------------------------
+// Utilitaires
+bool compare_u8_array(u8* first_array, u8* second_array, int size)
+{
     for (int i = 0; i < size; i++)
         if (first_array[i] != second_array[i])
             return false;
     return true;
 }
 
-void set_u8_array(u8* arr, int value, int size) {
-    memset(arr, value, size);
+void set_u8_array(u8* array, int value, int size)
+{
+    memset(array, value, size);
 }
 
-// --- print usage ---
-void print_usage() {
-    printf(
-        "selfutil [--input <file>] [--output <file>] [--dry-run] [--verbose] "
-        "[--overwrite] [--align-size] [--not-patch-first-segment-duplicate] "
-        "[--not-patch-version-segment]\n"
-    );
-}
-
-// --- SelfUtil methods ---
-
-bool SelfUtil::Load(string filePath) {
+// ---------------------------------
+// SelfUtil methods
+bool SelfUtil::Load(string filePath)
+{
     if (!filesystem::exists(filePath)) {
         printf("Failed to find file: \"%s\"\n", filePath.c_str());
         return false;
@@ -43,115 +136,52 @@ bool SelfUtil::Load(string filePath) {
         printf("Failed to open file: \"%s\"\n", filePath.c_str());
         return false;
     }
+
     fread(&data[0], 1, fileSize, f);
     fclose(f);
 
     return Parse();
 }
 
-bool SelfUtil::Parse() {
+bool SelfUtil::Parse()
+{
     seHead = (Self_Hdr*)&data[0];
 
-    if (seHead->magic != PS4_SELF_MAGIC && seHead->magic != PS5_SELF_MAGIC) {
+    if (seHead->magic != PS4_SELF_MAGIC && seHead->magic != PS5_SELF_MAGIC)
+    {
         printf("Invalid Magic! (0x%08X)\n", seHead->magic);
         return false;
     }
 
     entries.clear();
-    for (unat i = 0; i < seHead->num_entries; i++)
+    for (u32 i = 0; i < seHead->num_entries; i++)
+    {
         entries.push_back(&((Self_Entry*)&data[0])[1 + i]);
-
-    elfHOffs = (1 + seHead->num_entries) * 0x20;
-    eHead = (elf64_hdr*)(&data[0] + elfHOffs);
-
-    if (!TestIdent()) {
-        printf("ELF e_ident invalid!\n");
-        return false;
-    }
-
-    for (unat i = 0; i < eHead->e_phnum; i++)
-        phdrs.push_back(&((Elf64_Phdr*)(&data[0] + elfHOffs + eHead->e_phoff))[i]);
-
-    return true;
-}
-
-bool SelfUtil::TestIdent() {
-    if (*(u32*)eHead->e_ident != ELF_MAGIC) {
-        printf("Invalid ELF Magic: 0x%08X\n", *(u32*)eHead->e_ident);
-        return false;
-    }
-
-    if (eHead->e_ident[EI_CLASS] != ELFCLASS64 ||
-        eHead->e_ident[EI_DATA] != ELFDATA2LSB ||
-        eHead->e_ident[EI_VERSION] != EV_CURRENT ||
-        eHead->e_ident[EI_OSABI] != ELFOSABI_FREEBSD)
-        return false;
-
-    if (eHead->e_machine != EM_X86_64 || eHead->e_version != EV_CURRENT)
-        return false;
-
-    return true;
-}
-
-bool SelfUtil::SaveToELF(string savePath) {
-    if (verbose) printf("SaveToELF(\"%s\")\n", savePath.c_str());
-
-    Elf64_Off first = 0, last = 0;
-    size_t saveSize = 0;
-    Elf64_Phdr *ph_first = nullptr, *ph_last = nullptr, *ph_PT_SCE_VERSION = nullptr;
-    bool patched_PT_SCE_VERSION = false;
-
-    for (auto ph : phdrs) {
-        if (ph->p_type == PT_SCE_VERSION) ph_PT_SCE_VERSION = ph;
-        if (!ph_first || (ph->p_offset > 0 && ph->p_offset < ph_first->p_offset)) ph_first = ph;
-        if (!ph_last || ph->p_offset > ph_last->p_offset) ph_last = ph;
-    }
-
-    first = ph_first ? ph_first->p_offset : 0;
-    if (ph_last) saveSize = align_size ? ((ph_last->p_offset + ph_last->p_filesz + 0xF) & ~0xF) : (ph_last->p_offset + ph_last->p_filesz);
-
-    save.clear();
-    save.resize(saveSize, 0);
-    u8* pd = save.data();
-
-    // Copy ELF header + program headers
-    memcpy(pd, eHead, first);
-
-    // Copy entries
-    for (auto ee : entries) {
-        bool patch = ((ee->props & 0x800) || (ph_PT_SCE_VERSION && phdrs[(ee->props >> 20) & 0xFFF] == ph_PT_SCE_VERSION && patch_version_segment));
-        if (!patch) continue;
-
-        Elf64_Phdr* ph = phdrs[(ee->props >> 20) & 0xFFF];
-        void* dstp = pd + ph->p_offset;
-        void* srcp = (ph_PT_SCE_VERSION && ph == ph_PT_SCE_VERSION)
-                        ? data.data() + data.size() - ph->p_filesz
-                        : data.data() + ee->offs;
-        size_t datasize = (ph_PT_SCE_VERSION && ph == ph_PT_SCE_VERSION) ? ph->p_filesz : ee->fileSz;
-        memcpy(dstp, srcp, datasize);
-
-        if (ph_PT_SCE_VERSION && ph == ph_PT_SCE_VERSION) {
-            patched_PT_SCE_VERSION = true;
-            if (verbose) printf("Patched PT_SCE_VERSION segment\n");
+        if (verbose) {
+            Self_Entry* e = entries.back();
+            printf("Segment[%02d] P:%08X @0x%016llX +%llX (mem:%llX)\n", i, e->props, e->offs, e->fileSz, e->memSz);
         }
     }
 
-    // Patch first segment duplicate
-    if (patch_first_segment_duplicate && first > 0) {
-        int minOffset = -1;
-        for (int i = 0; i < entries.size(); i++)
-            if (entries[i]->offs - elfHOffs >= 0 && entries[i]->offs - elfHOffs < first)
-                minOffset = max(minOffset, int(entries[i]->offs - elfHOffs));
+    elfHOffs = (1 + seHead->num_entries) * 0x20;
+    eHead = (Elf64_Ehdr*)(&data[0] + elfHOffs);
 
-        if (minOffset != -1) set_u8_array(pd + minOffset, 0, first - minOffset);
-    }
+    return TestIdent();
+}
 
-    if (!dry_run) {
-        FILE* f = fopen(savePath.c_str(), "wb");
-        if (!f) return false;
-        fwrite(pd, 1, saveSize, f);
-        fclose(f);
-    }
+bool SelfUtil::TestIdent()
+{
+    if (*(u32*)eHead->e_ident != ELF_MAGIC)
+        return false;
+
+    if (!(eHead->e_ident[EI_CLASS] == ELFCLASS64 &&
+          eHead->e_ident[EI_DATA] == ELFDATA2LSB &&
+          eHead->e_ident[EI_VERSION] == EV_CURRENT &&
+          eHead->e_ident[EI_OSABI] == ELFOSABI_FREEBSD))
+        return false;
+
+    if (!(eHead->e_machine == EM_X86_64 && eHead->e_version == EV_CURRENT))
+        return false;
 
     return true;
 }
