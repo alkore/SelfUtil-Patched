@@ -1,11 +1,12 @@
-CXX      = clang++
-CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -Iselfutil_patched/compat
+CXX := clang++
+CXXFLAGS := -std=c++17 -O2 -Wall -Wextra
+TARGET := selfutil
+SRC := selfutil.cpp
 
-SRC = $(wildcard selfutil_patched/*.cpp)
-OUT = selfutil
+all: $(TARGET)
 
-all:
-	$(CXX) $(CXXFLAGS) $(SRC) -o $(OUT)
+$(TARGET): $(SRC)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
 clean:
-	rm -f $(OUT)
+	rm -f $(TARGET)
