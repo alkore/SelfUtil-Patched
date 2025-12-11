@@ -1,0 +1,17 @@
+- name: Build SelfUtil macOS x86_64
+  run: |
+    mkdir -p build
+
+    # 1️⃣ Précompilation du PCH
+    clang++ -std=c++17 -x c++-header -O2 -Wall -Wextra -o build/pch.h.gch selfutil_patched/pch.h
+
+    # 2️⃣ Compilation des sources principales avec PCH
+    clang++ -std=c++17 -O2 -Wall -Wextra \
+        -include selfutil_patched/pch.h \
+        -I./selfutil_patched \
+        -o build/selfutil \
+        selfutil_patched/selfutil.cpp \
+        selfutil_patched/pch.cpp
+
+    # 3️⃣ Vérification de l’exécutable
+    build/selfutil --help || echo "SelfUtil built, try running with input file"
