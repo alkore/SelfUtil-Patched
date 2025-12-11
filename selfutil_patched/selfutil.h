@@ -1,6 +1,6 @@
 #pragma once
 
-#include "elf.h"
+#include "compat/elf.h"
 #include "self.h"
 
 
