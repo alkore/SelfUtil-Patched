@@ -5,7 +5,11 @@
 
 #include "selfutil.h"
 #include <filesystem>
-
+#if defined(__APPLE__)
+#include "compat/elf.h"
+#else
+#include <elf.h>
+#endif
 //
 // //
 // // //
