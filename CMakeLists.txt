@@ -9,5 +9,4 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 add_executable(selfutil
     selfutil.cpp
-    pch.cpp # si tu as un précompilé
 )
