@@ -1,0 +1,43 @@
+name: Build SelfUtil for macOS
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runs-on: macos-15-intel
+          - arch: arm64
+            runs-on: macos-15
+
+    runs-on: ${{ matrix.runs-on }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build (${{ matrix.arch }})
+        run: |
+          mkdir -p build
+          SRCS=$(find . -name "*.cpp")
+
+          echo "Building for architecture: ${{ matrix.arch }}"
+          echo "Sources: $SRCS"
+
+          clang++ \
+            -std=c++17 \
+            -arch ${{ matrix.arch }} \
+            $SRCS \
+            -o build/selfutil-${{ matrix.arch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: selfutil-${{ matrix.arch }}
+          path: build/selfutil-${{ matrix.arch }}
