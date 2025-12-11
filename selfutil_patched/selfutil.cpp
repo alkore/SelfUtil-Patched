@@ -1,103 +1,72 @@
 #include "selfutil.h"
-#include <fstream>
 #include <iostream>
-#include <cstring>
-#include <cstdio>
+#include <fstream>
 
-using namespace std;
+// ------------------- SelfUtil class implementation -------------------
 
-// Chargement d’un fichier SELF
-bool SelfUtil::Load(const string& filePath)
+SelfUtil::SelfUtil(const std::string& filePath) : filePath(filePath) {}
+
+bool SelfUtil::Load(const std::string& filePath)
 {
-    ifstream file(filePath, ios::binary | ios::ate);
-    if (!file.is_open())
-    {
-        cerr << "Failed to open file: " << filePath << endl;
+    this->filePath = filePath;
+    std::ifstream in(filePath, std::ios::binary | std::ios::ate);
+    if (!in.is_open())
         return false;
-    }
 
-    streamsize size = file.tellg();
-    file.seekg(0, ios::beg);
+    size_t size = in.tellg();
+    in.seekg(0, std::ios::beg);
 
     data.resize(size);
-    if (!file.read((char*)data.data(), size))
-    {
-        cerr << "Failed to read file: " << filePath << endl;
-        return false;
-    }
+    in.read(reinterpret_cast<char*>(data.data()), size);
+    in.close();
 
-    if (size < sizeof(uint32_t))
-    {
-        cerr << "File too small to be a SELF" << endl;
+    // Check magic (PS4/PS5 SELF)
+    if (data.size() < sizeof(SelfHeader))
         return false;
-    }
 
-    uint32_t* magic = reinterpret_cast<uint32_t*>(data.data());
-    if (*magic != PS4_SELF_MAGIC && *magic != PS5_SELF_MAGIC)
-    {
-        cerr << "Invalid SELF magic: 0x" << hex << *magic << endl;
+    seHead = reinterpret_cast<SelfHeader*>(data.data());
+    if (seHead->magic != PS4_SELF_MAGIC && seHead->magic != PS5_SELF_MAGIC)
         return false;
-    }
 
     return true;
 }
 
-// Sauvegarde en ELF
-bool SelfUtil::SaveToELF(const string& outFile)
-{
-    ofstream file(outFile, ios::binary);
-    if (!file.is_open())
-    {
-        cerr << "Failed to open output file: " << outFile << endl;
-        return false;
-    }
-
-    if (!data.empty())
-        file.write((const char*)data.data(), data.size());
-
-    return true;
-}
-
-// Patch segments
-void SelfUtil::PatchSegments(bool patchFirstSegmentDuplicate, bool patchVersionSegment)
-{
-    if (patchFirstSegmentDuplicate)
-    {
-        // TODO: implémenter duplication du premier segment si nécessaire
-    }
-
-    if (patchVersionSegment)
-    {
-        for (size_t i = 0; i + sizeof(Elf64_Phdr) <= data.size(); i++)
-        {
-            Elf64_Phdr* ph = reinterpret_cast<Elf64_Phdr*>(&data[i]);
-            if (ph->p_type == PT_SCE_VERSION)
-            {
-                ph->p_flags = 0x6; // exemple lecture + exécution
-                break;
-            }
-        }
-    }
-}
-
-// Affichage info
-void SelfUtil::PrintInfo(const string& input_file_path,
-                         const string& output_file_path,
-                         bool dry_run,
-                         bool verbose,
-                         bool overwrite,
-                         bool align_size,
-                         bool patch_first_segment_duplicate,
+void SelfUtil::PrintInfo(const std::string& inputFile, const std::string& outputFile,
+                         bool dry_run, bool verbose, bool overwrite,
+                         bool align_size, bool patch_first_segment_duplicate,
                          bool patch_version_segment)
 {
-    printf(
-        "Input File Name: %s\nOutput File Name: %s\nDry Run: %s\nVerbose: %s\nOverwrite: %s\nAlign Size: %s\nPatch First Segment Duplicate: %s\nPatch Version Segment: %s\n",
-        input_file_path.c_str(),
-        output_file_path.c_str(),
-        dry_run ? "True" : "False",
-        verbose ? "True" : "False",
-        overwrite ? "True" : "False",
-        align_size ? "True" : "False",
-        patch_first_segment_duplicate ? "True" : "False",
-        patch_version_segment ? "True" : "False");
+    std::cout << "Input File Name: " << inputFile << "\n"
+              << "Output File Name: " << outputFile << "\n"
+              << "Dry Run: " << (dry_run ? "True" : "False") << "\n"
+              << "Verbose: " << (verbose ? "True" : "False") << "\n"
+              << "Overwrite: " << (overwrite ? "True" : "False") << "\n"
+              << "Align Size: " << (align_size ? "True" : "False") << "\n"
+              << "Patch First Segment Duplicate: " << (patch_first_segment_duplicate ? "True" : "False") << "\n"
+              << "Patch Version Segment: " << (patch_version_segment ? "True" : "False") << "\n";
+}
+
+// ------------------- Main executable entry -------------------
+
+int main(int argc, char** argv)
+{
+    if (argc < 2)
+    {
+        std::cerr << "Usage: selfutil <SELF file>\n";
+        return 1;
+    }
+
+    std::string input_file_path = argv[1];
+
+    SelfUtil util(input_file_path);
+    if (!util.Load(input_file_path))
+    {
+        std::cerr << "Failed to load SELF file: " << input_file_path << std::endl;
+        return 1;
+    }
+
+    util.PrintInfo(input_file_path, "out.elf", false, true, false, true, false, false);
+
+    std::cout << "SELF file loaded successfully!" << std::endl;
+    return 0;
 }
