@@ -12,7 +12,7 @@ using u64  = unsigned long long;
 using unat = unsigned long long;
 
 
-#include "compat/elf.h"
+#include "elf.h"
 
 #ifndef PCH_H
 #define PCH_H
