@@ -1,22 +1,17 @@
 #pragma once
-#include <cstdint>
+
 #include <cstddef>
+#include <cstdint>
+#include <string>
 
+#ifndef UNAT_DEFINED
+#define UNAT_DEFINED
 typedef size_t unat;
+#endif
 
-#define PS4_SELF_MAGIC 0x53454C46
-#define PS5_SELF_MAGIC 0x50534546
-#define PS4_PAGE_SIZE 0x1000
-#define PS5_PAGE_SIZE 0x1000
+// PT_SCE_VERSION : vérifier si déjà défini
+#ifndef PT_SCE_VERSION
+#define PT_SCE_VERSION (PT_LOOS + 0xfffff01)
+#endif
 
-struct Self_Hdr {
-    u32 magic;
-    u32 num_entries;
-};
-
-struct Self_Entry {
-    u64 offs;
-    u64 fileSz;
-    u64 memSz;
-    u32 props;
-};
+using std::string;
