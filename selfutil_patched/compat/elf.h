@@ -1,28 +1,36 @@
 #pragma once
 #include <cstdint>
+#include <cstddef> // size_t
 
+// Types standards
 typedef uint8_t  u8;
+typedef int8_t   s8;
 typedef uint16_t u16;
+typedef int16_t  s16;
 typedef uint32_t u32;
+typedef int32_t  s32;
 typedef uint64_t u64;
+typedef int64_t  s64;
 typedef size_t   unat;
 
+// ELF constants
 #define ELF_MAGIC 0x464C457F
-
 #define EI_CLASS 4
 #define EI_DATA 5
 #define EI_VERSION 6
 #define EI_OSABI 7
-
 #define ELFCLASS64 2
 #define ELFDATA2LSB 1
 #define EV_CURRENT 1
 #define ELFOSABI_FREEBSD 9
+#define EM_X86_64 62
+#define ET_SCE_EXEC 0xFE00
+#define PT_LOOS 0x60000000
+#define PT_SCE_VERSION (PT_LOOS + 0xfffff01) // .sce_version
 
-#define EM_X86_64 0x3E
-
+// ELF structs
 typedef struct elf64_hdr {
-    unsigned char e_ident[16];
+    u8 e_ident[16];
     u16 e_type;
     u16 e_machine;
     u32 e_version;
@@ -36,7 +44,7 @@ typedef struct elf64_hdr {
     u16 e_shentsize;
     u16 e_shnum;
     u16 e_shstrndx;
-} elf64_hdr;
+} Elf64_Ehdr;
 
 typedef struct elf64_phdr {
     u32 p_type;
@@ -48,9 +56,3 @@ typedef struct elf64_phdr {
     u64 p_memsz;
     u64 p_align;
 } Elf64_Phdr;
-
-#ifndef PT_SCE_VERSION
-#define PT_SCE_VERSION (0x60000000 + 0xfffff01) // .sce_version
-#endif
-
-#define PT_LOOS 0x60000000
