@@ -4,7 +4,7 @@
 #include <string>
 #include <cstdio>
 #include <filesystem>
-#include "elf.h"
+#include "compat/elf.h"
 #include "self.h"
 
 using namespace std;
