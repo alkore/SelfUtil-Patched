@@ -1,63 +1,71 @@
 #pragma once
 #include <cstdint>
 
-// Types ELF standard
-typedef uint16_t Elf64_Half;
-typedef uint32_t Elf64_Word;
-typedef int32_t  Elf64_Sword;
-typedef uint64_t Elf64_Xword;
-typedef int64_t  Elf64_Sxword;
-typedef uint64_t Elf64_Addr;
-typedef uint64_t Elf64_Off;
-typedef uint16_t Elf64_Section;
-typedef uint16_t Elf64_Versym;
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
-// ELF header
-typedef struct {
-    unsigned char e_ident[16];
-    Elf64_Half e_type;
-    Elf64_Half e_machine;
-    Elf64_Word e_version;
-    Elf64_Addr e_entry;
-    Elf64_Off  e_phoff;
-    Elf64_Off  e_shoff;
-    Elf64_Word e_flags;
-    Elf64_Half e_ehsize;
-    Elf64_Half e_phentsize;
-    Elf64_Half e_phnum;
-    Elf64_Half e_shentsize;
-    Elf64_Half e_shnum;
-    Elf64_Half e_shstrndx;
-} Elf64_Ehdr;
+// ---- ELF Constants ----
+#ifndef ELFCLASS64
+#define ELFCLASS64 2
+#endif
 
-// Program header
-typedef struct {
-    Elf64_Word p_type;
-    Elf64_Word p_flags;
-    Elf64_Off  p_offset;
-    Elf64_Addr p_vaddr;
-    Elf64_Addr p_paddr;
-    Elf64_Xword p_filesz;
-    Elf64_Xword p_memsz;
-    Elf64_Xword p_align;
-} Elf64_Phdr;
+#ifndef ELFDATA2LSB
+#define ELFDATA2LSB 1
+#endif
 
-// Segment types
-#define PT_NULL    0
-#define PT_LOAD    1
-#define PT_DYNAMIC 2
-#define PT_INTERP  3
-#define PT_NOTE    4
-#define PT_SHLIB   5
-#define PT_PHDR    6
-#define PT_TLS     7
-#define PT_LOOS    0x60000000
-#define PT_HIOS    0x6fffffff
-#define PT_LOPROC  0x70000000
-#define PT_HIPROC  0x7fffffff
+#ifndef EV_CURRENT
+#define EV_CURRENT 1
+#endif
 
-// PS4/PS5 specific
+#ifndef ELFOSABI_FREEBSD
+#define ELFOSABI_FREEBSD 9
+#endif
+
+#ifndef PT_LOOS
+#define PT_LOOS 0x60000000
+#endif
+
+#ifndef PT_SCE_VERSION
 #define PT_SCE_VERSION (PT_LOOS + 0xfffff01)
+#endif
 
-// ELF magic
+#ifndef ELF_MAGIC
 #define ELF_MAGIC 0x464C457F
+#endif
+
+// ---- ELF types ----
+#ifndef ELF64_EHDR_DEFINED
+#define ELF64_EHDR_DEFINED
+typedef struct elf64_hdr {
+    u8  e_ident[16];
+    u16 e_type;
+    u16 e_machine;
+    u32 e_version;
+    u64 e_entry;
+    u64 e_phoff;
+    u64 e_shoff;
+    u32 e_flags;
+    u16 e_ehsize;
+    u16 e_phentsize;
+    u16 e_phnum;
+    u16 e_shentsize;
+    u16 e_shnum;
+    u16 e_shstrndx;
+} Elf64_Ehdr;
+#endif
+
+#ifndef ELF64_PHDR_DEFINED
+#define ELF64_PHDR_DEFINED
+typedef struct elf64_phdr {
+    u32 p_type;
+    u32 p_flags;
+    u64 p_offset;
+    u64 p_vaddr;
+    u64 p_paddr;
+    u64 p_filesz;
+    u64 p_memsz;
+    u64 p_align;
+} Elf64_Phdr;
+#endif
