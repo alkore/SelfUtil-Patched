@@ -2,24 +2,26 @@
 
 #include "compat/elf.h"
 #include "self.h"
+#include <vector>
+#include <string>
+#include <cstdio>
 
 using namespace std;
 
 class SelfUtil
 {
-    vector<u8> data, save;
+    vector<uint8_t> data, save;
 
-    Self_Hdr * seHead;
+    Self_Hdr* seHead;
     vector<Self_Entry*> entries;
 
-    Elf64_Ehdr* eHead;      // remplace elf64_hdr*
-    unat elfHOffs;
+    Elf64_Ehdr* eHead;   // anciennement elf64_hdr*
+    uint64_t elfHOffs;
 
-    vector<Elf64_Phdr*> phdrs;  // remplace elf64_phdr*
-
+    vector<Elf64_Phdr*> phdrs;
 
 public:
-    SelfUtil() { }
+    SelfUtil() {}
 
     SelfUtil(string filePath)
     {
