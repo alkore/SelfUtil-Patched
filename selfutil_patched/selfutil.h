@@ -18,10 +18,7 @@ class SelfUtil
 
 public:
     SelfUtil() {}
-    SelfUtil(const string& filePath) {
-        if (!Load(filePath))
-            printf("Error, Load() failed!\n");
-    }
+    SelfUtil(const string& filePath) { Load(filePath); }
 
     bool Parse();
     bool TestIdent();
