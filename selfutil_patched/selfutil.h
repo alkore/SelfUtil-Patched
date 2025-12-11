@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include <elf.h>
+#include <compat/elf.h>
 
 using namespace std;
 
