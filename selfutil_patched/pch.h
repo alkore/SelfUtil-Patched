@@ -11,11 +11,8 @@
 using u64  = unsigned long long;
 using unat = unsigned long long;
 
-#if defined(__APPLE__)
+
 #include "compat/elf.h"
-#else
-#include <elf.h>
-#endif
 
 #ifndef PCH_H
 #define PCH_H
