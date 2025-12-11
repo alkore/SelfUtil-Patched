@@ -1,0 +1,38 @@
+name: Build SelfUtil macOS
+
+on:
+  push:
+    branches: [main]       # ou la branche de ton choix
+  pull_request:
+    branches: [main]
+  workflow_dispatch:       # permet un lancement manuel
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up build directory
+        run: mkdir -p build
+
+      - name: Build precompiled header
+        run: |
+          clang++ -std=c++17 -x c++-header -O2 -Wall -Wextra \
+            -I./selfutil_patched \
+            -o build/pch.h.gch selfutil_patched/pch.h
+
+      - name: Compile SelfUtil
+        run: |
+          clang++ -std=c++17 -O2 -Wall -Wextra \
+            -include selfutil_patched/pch.h \
+            -I./selfutil_patched \
+            -o build/selfutil \
+            selfutil_patched/selfutil.cpp \
+            selfutil_patched/pch.cpp
+
+      - name: Run SelfUtil help
+        run: |
+          build/selfutil --help || echo "SelfUtil compiled successfully"
