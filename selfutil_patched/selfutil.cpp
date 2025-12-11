@@ -8,7 +8,7 @@ using namespace std;
 bool SelfUtil::Load(const string& filePath)
 {
     if (!filesystem::exists(filePath)) {
-        printf("Failed to find file: \"%s\" \n", filePath.c_str());
+        printf("File not found: \"%s\"\n", filePath.c_str());
         return false;
     }
 
@@ -16,13 +16,9 @@ bool SelfUtil::Load(const string& filePath)
     data.resize(fileSize);
 
     FILE* f = fopen(filePath.c_str(), "rb");
-    if (f) {
-        fread(&data[0], 1, fileSize, f);
-        fclose(f);
-    } else {
-        printf("Failed to open file: \"%s\" \n", filePath.c_str());
-        return false;
-    }
+    if (!f) return false;
+    fread(&data[0], 1, fileSize, f);
+    fclose(f);
 
     return Parse();
 }
@@ -31,16 +27,14 @@ bool SelfUtil::Parse()
 {
     seHead = (Self_Hdr*)&data[0];
 
-    if (seHead->magic != PS4_SELF_MAGIC && seHead->magic != PS5_SELF_MAGIC) {
-        printf("Invalid Magic! (0x%08X)\n", seHead->magic);
+    if (seHead->magic != PS4_SELF_MAGIC && seHead->magic != PS5_SELF_MAGIC)
         return false;
-    }
 
     entries.clear();
     for (unat seIdx = 0; seIdx < seHead->num_entries; seIdx++)
         entries.push_back(&((Self_Entry*)&data[0])[1 + seIdx]);
 
-    elfHOffs = (1 + seHead->num_entries) * 0x20;
+    elfHOffs = (1 + seHead->num_entries) * sizeof(Self_Entry);
     eHead = (Elf64_Ehdr*)(&data[0] + elfHOffs);
 
     return TestIdent();
@@ -65,10 +59,7 @@ bool SelfUtil::TestIdent()
 
 bool SelfUtil::SaveToELF(const string& savePath)
 {
-    save.clear();
-    // exemple simplifié : copie brute
     save = data;
-
     if (!savePath.empty()) {
         FILE* f = fopen(savePath.c_str(), "wb");
         if (!f) return false;
