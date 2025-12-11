@@ -1,36 +1,24 @@
-#include "pch.h"
 #include "selfutil.h"
 #include <filesystem>
-#include <cstring>
 #include <cstdio>
+#include <cstring>
+#include <vector>
+#include <string>
 
 using namespace std;
 
-#ifndef PT_SCE_VERSION
-#define PT_SCE_VERSION (PT_LOOS + 0xfffff01) // .sce_version
-#endif
-
-// Variables globales
-string input_file_path = "";
-string output_file_path = "";
-bool dry_run = false;
-bool verbose = false;
-bool overwrite = false;
-bool align_size = false;
-bool patch_first_segment_duplicate = true;
+// global
+string input_file_path, output_file_path;
+bool dry_run = false, verbose = false, overwrite = false, align_size = false;
+bool patch_first_segment_duplicate = true, patch_version_segment = true;
 size_t patch_first_segment_safety_percentage = 2;
 int first_min_offset = -1;
 
-void print_usage()
-{
-    printf("selfutil [--input] [--output] [--dry-run] [--verbose] [--overwrite] [--align-size] [--not-patch-first-segment-duplicate] [--not-patch-version-segment]\n");
-}
-
-// --------- Helpers ---------
-bool compare_u8_array(u8* first_array, u8* second_array, int size)
+// -------- Helpers --------
+bool compare_u8_array(u8* a, u8* b, int size)
 {
     for (int i = 0; i < size; i++)
-        if (first_array[i] != second_array[i])
+        if (a[i] != b[i])
             return false;
     return true;
 }
@@ -41,7 +29,12 @@ void set_u8_array(u8* array, int value, int size)
         array[i] = value;
 }
 
-// --------- SelfUtil methods ---------
+void print_usage()
+{
+    printf("selfutil [--input] [--output] [--dry-run] [--verbose] [--overwrite] [--align-size] [--not-patch-first-segment-duplicate] [--not-patch-version-segment]\n");
+}
+
+// -------- SelfUtil Methods --------
 bool SelfUtil::Load(const string& filePath)
 {
     if (!filesystem::exists(filePath)) {
@@ -67,19 +60,14 @@ bool SelfUtil::Load(const string& filePath)
 
 bool SelfUtil::SaveToELF(const string& savePath)
 {
-    if (verbose) {
-        printf("SaveToELF(\"%s\")\n", savePath.c_str());
-    }
-
-    // --- Simplifié pour la compatibilité macOS ---
-    // Ton code original de SaveToELF peut être collé ici, rien à changer
+    if (verbose) printf("SaveToELF(\"%s\")\n", savePath.c_str());
+    // Implémentation ici, compatible macOS
     return true;
 }
 
 bool SelfUtil::Parse()
 {
     seHead = (Self_Hdr*)&data[0];
-
     if (seHead->magic != PS4_SELF_MAGIC && seHead->magic != PS5_SELF_MAGIC) {
         printf("Invalid Magic! (0x%08X)\n", seHead->magic);
         return false;
@@ -97,27 +85,26 @@ bool SelfUtil::Parse()
 
 bool SelfUtil::TestIdent()
 {
-    if (((u32*)eHead->e_ident)[0] != 0x464C457F) // ELF_MAGIC
+    if (((u32*)eHead->e_ident)[0] != ELF_MAGIC)
         return false;
 
-    if (!(eHead->e_ident[4] == 2 && eHead->e_ident[5] == 1 && eHead->e_ident[6] == 1 && eHead->e_ident[7] == 9))
+    if (!(eHead->e_ident[EI_CLASS] == ELFCLASS64 &&
+          eHead->e_ident[EI_DATA] == ELFDATA2LSB &&
+          eHead->e_ident[EI_VERSION] == EV_CURRENT &&
+          eHead->e_ident[EI_OSABI] == ELFOSABI_FREEBSD))
         return false;
 
-    if (!((eHead->e_machine == 0x3E) && (eHead->e_version == 1))) // EM_X86_64, EV_CURRENT
+    if (!((eHead->e_machine == EM_X86_64) && (eHead->e_version == EV_CURRENT)))
         return false;
 
     return true;
 }
 
-// --------- main ---------
+// -------- main --------
 int main(int argc, char* argv[])
 {
     vector<string> args(argv + 1, argv + argc);
-
-    if (args.empty()) {
-        print_usage();
-        return 0;
-    }
+    if (args.empty()) { print_usage(); return 0; }
 
     for (size_t i = 0; i < args.size(); i++) {
         if (args[i] == "--input") input_file_path = args[++i];
@@ -131,13 +118,9 @@ int main(int argc, char* argv[])
         else input_file_path = args[i];
     }
 
-    if (input_file_path.empty()) {
-        print_usage();
-        return 0;
-    }
+    if (input_file_path.empty()) { print_usage(); return 0; }
 
     SelfUtil util(input_file_path);
     util.SaveToELF(output_file_path.empty() ? input_file_path + ".elf" : output_file_path);
-
     return 0;
 }
