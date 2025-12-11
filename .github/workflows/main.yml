@@ -1,35 +1,42 @@
-name: Build SelfUtil for macOS & others
+name: Build SelfUtil for macOS
 
-on: [push, pull_request]
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
       matrix:
         include:
-          - os: macOS Intel
+          - arch: x86_64
             runs-on: macos-15-intel
-            arch: x86_64
-          - os: macOS Silicon
+          - arch: arm64
             runs-on: macos-15
-            arch: arm64
+
+    runs-on: ${{ matrix.runs-on }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Xcode CLI
-        run: sudo xcode-select --install || true
-
-      - name: Compile
         run: |
-          echo "Building for ${{ matrix.arch }}"
-          mkdir build
+          sudo xcode-select --install || true
+
+      - name: Build (${{ matrix.arch }})
+        run: |
+          mkdir -p build
           cd build
+
+          # Exemple CMake (à adapter selon ton projet)
           cmake -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} ..
           cmake --build . --config Release
 
-      - name: Upload
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: selfutil-${{ matrix.arch }}
-          path: build/your_binary
+          path: build
