@@ -1,141 +1,103 @@
 #include "selfutil.h"
-#include "compat/elf.h"
+#include <fstream>
+#include <iostream>
+#include <cstring>
 #include <cstdio>
-#include <vector>
-#include <string>
 
 using namespace std;
 
-// Global flags (tu peux aussi les mettre dans SelfUtil si tu veux)
-string input_file_path;
-string output_file_path;
-bool dry_run = false;
-bool verbose = false;
-bool overwrite = false;
-bool align_size = false;
-bool patch_first_segment_duplicate = true;
-bool patch_version_segment = true;
-
-// Usage helper
-void print_usage()
-{
-    printf("Usage: selfutil --input <file> [--output <file>] [--dry-run] [--verbose] [--overwrite] [--align-size] [--not-patch-first-segment-duplicate] [--not-patch-version-segment]\n");
-}
-
-// ----------------------- SelfUtil member functions ------------------------
-
-SelfUtil::SelfUtil(const string& filePath) : filePath(filePath)
-{
-}
-
-// Load function
+// Chargement d’un fichier SELF
 bool SelfUtil::Load(const string& filePath)
 {
-    // Ici tu dois implémenter ton code pour charger le fichier SELF
+    ifstream file(filePath, ios::binary | ios::ate);
+    if (!file.is_open())
+    {
+        cerr << "Failed to open file: " << filePath << endl;
+        return false;
+    }
+
+    streamsize size = file.tellg();
+    file.seekg(0, ios::beg);
+
+    data.resize(size);
+    if (!file.read((char*)data.data(), size))
+    {
+        cerr << "Failed to read file: " << filePath << endl;
+        return false;
+    }
+
+    if (size < sizeof(uint32_t))
+    {
+        cerr << "File too small to be a SELF" << endl;
+        return false;
+    }
+
+    uint32_t* magic = reinterpret_cast<uint32_t*>(data.data());
+    if (*magic != PS4_SELF_MAGIC && *magic != PS5_SELF_MAGIC)
+    {
+        cerr << "Invalid SELF magic: 0x" << hex << *magic << endl;
+        return false;
+    }
+
     return true;
 }
 
-// SaveToELF function
+// Sauvegarde en ELF
 bool SelfUtil::SaveToELF(const string& outFile)
 {
-    // Ici tu dois implémenter ton code pour sauvegarder en ELF
+    ofstream file(outFile, ios::binary);
+    if (!file.is_open())
+    {
+        cerr << "Failed to open output file: " << outFile << endl;
+        return false;
+    }
+
+    if (!data.empty())
+        file.write((const char*)data.data(), data.size());
+
     return true;
 }
 
-// ----------------------- Main function ------------------------
-
-int main(int argc, char* argv[])
+// Patch segments
+void SelfUtil::PatchSegments(bool patchFirstSegmentDuplicate, bool patchVersionSegment)
 {
-    vector<string> args;
-
-    if (argc < 2)
+    if (patchFirstSegmentDuplicate)
     {
-        print_usage();
-        return 0;
+        // TODO: implémenter duplication du premier segment si nécessaire
     }
 
-    for (int i = 1; i < argc; i++)
-        args.push_back(argv[i]);
-
-    bool error_found = false;
-
-    for (size_t i = 0; i < args.size(); i++)
+    if (patchVersionSegment)
     {
-        if (args[i] == "--input" && i + 1 < args.size())
+        for (size_t i = 0; i + sizeof(Elf64_Phdr) <= data.size(); i++)
         {
-            input_file_path = args[i + 1];
-            i++;
+            Elf64_Phdr* ph = reinterpret_cast<Elf64_Phdr*>(&data[i]);
+            if (ph->p_type == PT_SCE_VERSION)
+            {
+                ph->p_flags = 0x6; // exemple lecture + exécution
+                break;
+            }
         }
-        else if (args[i] == "--output" && i + 1 < args.size())
-        {
-            output_file_path = args[i + 1];
-            i++;
-        }
-        else if (args[i] == "--dry-run")
-            dry_run = true;
-        else if (args[i] == "--verbose")
-            verbose = true;
-        else if (args[i] == "--overwrite")
-            overwrite = true;
-        else if (args[i] == "--align-size")
-            align_size = true;
-        else if (args[i] == "--not-patch-first-segment-duplicate")
-            patch_first_segment_duplicate = false;
-        else if (args[i] == "--not-patch-version-segment")
-            patch_version_segment = false;
-        else
-            error_found = true;
     }
+}
 
-    if (error_found || input_file_path.empty())
-    {
-        print_usage();
-        return 0;
-    }
-
-    string fixed_output_file_path = output_file_path.empty() ? input_file_path : output_file_path;
-
-    if (!overwrite && output_file_path.empty())
-    {
-        size_t dot_pos = input_file_path.rfind('.');
-        if (dot_pos != string::npos)
-            fixed_output_file_path = input_file_path.substr(0, dot_pos) + ".elf";
-    }
-
-    // Affichage des infos
+// Affichage info
+void SelfUtil::PrintInfo(const string& input_file_path,
+                         const string& output_file_path,
+                         bool dry_run,
+                         bool verbose,
+                         bool overwrite,
+                         bool align_size,
+                         bool patch_first_segment_duplicate,
+                         bool patch_version_segment)
+{
     printf(
-        "Input File Name: %s\n"
-        "Output File Name: %s\n"
-        "Dry Run: %s\n"
-        "Verbose: %s\n"
-        "Overwrite: %s\n"
-        "Align Size: %s\n"
-        "Patch First Segment Duplicate: %s\n"
-        "Patch Version Segment: %s\n",
+        "Input File Name: %s\nOutput File Name: %s\nDry Run: %s\nVerbose: %s\nOverwrite: %s\nAlign Size: %s\nPatch First Segment Duplicate: %s\nPatch Version Segment: %s\n",
         input_file_path.c_str(),
-        fixed_output_file_path.c_str(),
+        output_file_path.c_str(),
         dry_run ? "True" : "False",
         verbose ? "True" : "False",
         overwrite ? "True" : "False",
         align_size ? "True" : "False",
         patch_first_segment_duplicate ? "True" : "False",
-        patch_version_segment ? "True" : "False"
-    );
-
-    // Création de l'objet avec constructeur correct
-    SelfUtil util(input_file_path);
-
-    if (!util.Load(input_file_path))
-    {
-        printf("Error, failed to load SELF file!\n");
-        return 1;
-    }
-
-    if (!util.SaveToELF(fixed_output_file_path))
-    {
-        printf("Error, Save to ELF failed!\n");
-        return 1;
-    }
-
-    return 0;
+        patch_version_segment ? "True" : "False");
 }
