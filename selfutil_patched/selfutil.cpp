@@ -182,7 +182,7 @@ bool SelfUtil::Load(string filePath)
 	data.resize(fileSize);
 
 	FILE* f = nullptr;
-	fopen_s(&f, filePath.c_str(), "rb");
+	f = fopen(filePath.c_str(), "rb");
 	if (f) {
 		fread(&data[0], 1, fileSize, f);
 		fclose(f);
@@ -310,7 +310,7 @@ bool SelfUtil::SaveToELF(string savePath)
 		{
 			method_found = false;
 
-			if (ph->p_filesz != NULL && ph->p_filesz != ee->memSz)
+			if (ph->p_filesz != 0 && ph->p_filesz != ee->memSz)
 				if (verbose == true)
 					printf("idx: %d SEGMENT size: %d != phdr size: %d \n", phIdx, ee->memSz, ph->p_filesz);
 
@@ -456,7 +456,7 @@ bool SelfUtil::SaveToELF(string savePath)
 	{
 		FILE* f = nullptr;
 
-		fopen_s(&f, savePath.c_str(), "wb");
+		f = fopen(savePath.c_str(), "wb");
 
 		if (f) {
 			fwrite(pd, 1, saveSize, f);
